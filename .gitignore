@@ -1,0 +1,31 @@
+# --- SECRETS ---
+.env
+
+# --- PYTHON ---
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- NODE / ELECTRON ---
+node_modules/
+dist/
+npm-debug.log*
+
+# --- PROJECT SPECIFIC ---
+ui_state.txt
+*.log
+
+openaipic.py
+build/
+dist/
+.env
+__pycache__/
+*.pkg
+
+# --- SYSTEM FILES ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

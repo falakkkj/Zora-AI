@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            background: transparent !important;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+            -webkit-app-region: drag;
+        }
+
+        .visualizer {
+            width: 150px;
+            height: 150px;
+            background: linear-gradient(45deg, #00f2ff, #0066ff, #7000ff);
+            background-size: 200% 200%;
+            border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+            filter: url('#goo');
+            box-shadow: 0 0 40px rgba(0, 242, 255, 0.6);
+            animation: morph 6s linear infinite, gradientMove 4s ease infinite;
+            transition: all 0.5s ease;
+            cursor: pointer; /* Shows it's clickable on mobile */
+        }
+
+        .active-mode {
+            transform: scale(1.2);
+            animation: morph 2s linear infinite, gradientMove 2s ease infinite !important;
+            box-shadow: 0 0 60px #00f2ff, 0 0 100px #7000ff;
+        }
+
+        @keyframes morph {
+            0%, 100% { border-radius: 40% 60% 70% 30% / 40% 40% 60% 50%; }
+            34% { border-radius: 70% 30% 50% 50% / 30% 30% 70% 70%; }
+            67% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 40%; }
+        }
+
+        @keyframes gradientMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #status {
+            margin-top: 25px;
+            font-size: 12px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            opacity: 0.7;
+            -webkit-app-region: no-drag;
+            text-align: center;
+            max-width: 80%;
+        }
+    </style>
+</head>
+<body>
+    <svg width="0" height="0">
+        <filter id="goo">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
+        </filter>
+    </svg>
+
+    <div class="visualizer" id="blob"></div>
+    <div id="status">Initializing...</div>
+
+    <script>
+        const blob = document.getElementById('blob');
+        const statusText = document.getElementById('status');
+        const LAPTOP_IP = "http://192.168.1.132:5000/ask";
+
+        // --- MOBILE LOGIC: Web Speech API ---
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+
+        blob.onclick = () => {
+            try {
+                recognition.start();
+                statusText.innerText = "Listening...";
+                blob.classList.add('active-mode');
+            } catch (e) { console.log("Voice already active"); }
+        };
+
+        recognition.onresult = async (event) => {
+            const transcript = event.results[0][0].transcript;
+            statusText.innerText = "Processing: " + transcript;
+
+            try {
+                const response = await fetch(LAPTOP_IP, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: transcript })
+                });
+                const data = await response.json();
+                statusText.innerText = data.response;
+            } catch (err) {
+                statusText.innerText = "Connection Error";
+            }
+            blob.classList.remove('active-mode');
+        };
+
+        // --- DESKTOP LOGIC: Electron File Watcher ---
+        if (typeof require !== 'undefined') {
+            const fs = require('fs');
+            setInterval(() => {
+                try {
+                    if (fs.existsSync('ui_state.txt')) {
+                        const state = fs.readFileSync('ui_state.txt', 'utf8').trim();
+                        statusText.innerText = state;
+
+                        if (state !== "Dormant" && !state.includes("Waiting")) {
+                            blob.classList.add('active-mode');
+                        } else {
+                            blob.classList.remove('active-mode');
+                        }
+                    }
+                } catch (err) {}
+            }, 300);
+        }
+    </script>
+</body>
+</html>
